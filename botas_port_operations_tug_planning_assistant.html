@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BOTAS Port Operations & Tug Planning Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #1e293b; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        .vessel-hull-input {
+            writing-mode: vertical-lr;
+            transform: rotate(180deg);
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-slate-900 border-b border-slate-800 shadow-xl sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-11 h-11 bg-white rounded-xl shadow-lg flex items-center justify-center overflow-hidden p-0.5 border border-slate-700">
+                    <img src="https://placehold.co/44x44/ffffff/0f172a?text=BOTAŞ" alt="BOTAŞ Logo" class="w-full h-full object-contain" onerror="this.src='https://placehold.co/44x44/1e293b/ffffff?text=B'">
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight text-white">BOTAŞ PILOTAGE PORT OPERATION & TUGBOAT ASSISTANT</h1>
+                    <p class="text-xs text-slate-400">Ceyhan, Botas/Somo ve Dörtyol Terminalleri Entegre Takip & Hesaplama</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+                <button onclick="switchTab('schedule')" id="btn-schedule" class="px-3.5 py-2 text-xs md:text-sm font-medium rounded-lg bg-blue-600 text-white transition shadow-md hover:bg-blue-500">Liman Gemi Programı</button>
+                <button onclick="switchTab('map')" id="btn-map" class="px-3.5 py-2 text-xs md:text-sm font-medium rounded-lg bg-slate-800 text-slate-300 transition hover:bg-slate-700">Terminal Haritası</button>
+                <button onclick="switchTab('calculator')" id="btn-calculator" class="px-3.5 py-2 text-xs md:text-sm font-medium rounded-lg bg-slate-800 text-slate-300 transition hover:bg-slate-700">Römorkör Uyumluluk</button>
+                <button onclick="switchTab('fleet')" id="btn-fleet" class="px-3.5 py-2 text-xs md:text-sm font-medium rounded-lg bg-slate-800 text-slate-300 transition hover:bg-slate-700">Filo (10 Tug)</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 py-6 space-y-6">
+
+        <!-- TAB 1: SHIP SCHEDULE / PROGRAM -->
+        <div id="tab-schedule" class="space-y-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                    <div>
+                        <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+                            Terminal Operasyon ve Gemi Programı Çizelgesi
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-0.5">Ceyhan, BOTAŞ/SOMO ve Dörtyol terminalleri güncel operasyon çizelgesi.</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="openAddVesselModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow-lg transition flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            Yeni Gemi Ekle
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto custom-scrollbar rounded-xl border border-slate-800">
+                    <table class="w-full text-left border-collapse text-xs md:text-sm">
+                        <thead>
+                            <tr class="bg-slate-800/80 text-slate-400 uppercase tracking-wider text-[11px] border-b border-slate-700">
+                                <th class="py-3 px-3 w-32 border-r border-slate-700">Terminal</th>
+                                <th class="py-3 px-3 border-r border-slate-700">Gemi Adı</th>
+                                <th class="py-3 px-3 w-24 border-r border-slate-700">GRT</th>
+                                <th class="py-3 px-3 w-28 border-r border-slate-700">Agent</th>
+                                <th class="py-3 px-3 w-24 border-r border-slate-700 text-center">Berth</th>
+                                <th class="py-3 px-3 w-28 border-r border-slate-700 text-center">ETA</th>
+                                <th class="py-3 px-3 w-28 border-r border-slate-700 text-center">NOR</th>
+                                <th class="py-3 px-3 w-12 border-r border-slate-700 text-center">YT</th>
+                                <th class="py-3 px-3 w-12 border-r border-slate-700 text-center">TA</th>
+                                <th class="py-3 px-3 w-12 border-r border-slate-700 text-center">OR</th>
+                                <th class="py-3 px-3 w-16 text-center">İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scheduleTableBody" class="divide-y divide-slate-800 text-slate-200"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: TERMINAL MAP & BERTH SCHEMATICS -->
+        <div id="tab-map" class="hidden space-y-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                    <div>
+                        <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                            <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+                            Terminal Iskeleleri ve Gemi Yerleşim Şeması
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-0.5">BTC Terminali (Berth 1 & 2) ve BOTAŞ / SOMO Terminali güncel yanaşma yerleşim şemaları.</p>
+                    </div>
+                </div>
+
+                <!-- Şema Container -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- BTC Terminal Şeması -->
+                    <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 flex flex-col items-center relative overflow-hidden">
+                        <div class="absolute top-4 left-4 z-10">
+                            <span class="px-3 py-1 bg-blue-600/20 text-blue-400 border border-blue-500/30 text-xs font-bold rounded-lg">BTC Terminali (Berth 1-2)</span>
+                        </div>
+                        
+                        <div class="w-full h-96 flex items-center justify-center mt-6 relative">
+                            <svg viewBox="0 0 400 500" class="w-full h-full drop-shadow-2xl absolute inset-0">
+                                <path d="M180,20 L220,20 L210,120 L190,120 Z" fill="#94a3b8" />
+                                <rect x="188" y="120" width="24" height="260" rx="3" fill="#cbd5e1" />
+                                <rect x="160" y="370" width="80" height="40" rx="4" fill="#94a3b8" />
+                                
+                                <path d="M90,150 L140,150 L140,330 L115,360 L90,330 Z" fill="#ef4444" stroke="#b91c1c" stroke-width="2"/>
+                                <path d="M260,150 L310,150 L310,330 L285,360 L260,330 Z" fill="#ef4444" stroke="#b91c1c" stroke-width="2"/>
+                            </svg>
+
+                            <div class="absolute inset-0 flex justify-between items-center px-[22.5%] pointer-events-none">
+                                <div class="w-20 h-48 flex items-center justify-center pointer-events-auto mt-6">
+                                    <input type="text" id="mapB1Name" value="...." class="w-40 bg-transparent text-white font-extrabold text-xs text-center focus:outline-none focus:ring-1 focus:ring-white/50 vessel-hull-input drop-shadow-md" />
+                                </div>
+                                <div class="w-20 h-48 flex items-center justify-center pointer-events-auto mt-6">
+                                    <input type="text" id="mapB2Name" value="...." class="w-40 bg-transparent text-white font-extrabold text-xs text-center focus:outline-none focus:ring-1 focus:ring-white/50 vessel-hull-input drop-shadow-md" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-xs text-slate-400 mt-2 text-center">BTC İskelesi Çift Taraflı Tanker Yanaşma Düzeni</div>
+                    </div>
+
+                    <!-- BOTAŞ / SOMO Terminal Şeması -->
+                    <div class="bg-slate-950 border border-slate-800 rounded-2xl p-6 flex flex-col items-center relative overflow-hidden">
+                        <div class="absolute top-4 left-4 z-10">
+                            <span class="px-3 py-1 bg-amber-600/20 text-amber-400 border border-amber-500/30 text-xs font-bold rounded-lg">BOTAŞ / SOMO Terminali (Berth 1-2-3-4)</span>
+                        </div>
+                        
+                        <div class="w-full h-[620px] flex items-center justify-center mt-6 relative">
+                            <svg viewBox="0 0 400 700" class="w-full h-full drop-shadow-2xl absolute inset-0">
+                                <path d="M180,10 L220,10 L210,80 L190,80 Z" fill="#94a3b8" />
+                                <rect x="188" y="80" width="24" height="520" rx="3" fill="#cbd5e1" />
+                                <rect x="160" y="580" width="80" height="40" rx="4" fill="#94a3b8" />
+                                
+                                <path d="M90,90 L140,90 L140,280 L115,310 L90,280 Z" fill="#ef4444" stroke="#b91c1c" stroke-width="2"/>
+                                <path d="M90,320 L140,320 L140,510 L115,540 L90,510 Z" fill="#ef4444" stroke="#b91c1c" stroke-width="2"/>
+
+                                <path d="M260,90 L310,90 L310,280 L285,310 L260,280 Z" fill="#ef4444" stroke="#b91c1c" stroke-width="2"/>
+                                <path d="M260,320 L310,320 L310,510 L285,540 L260,510 Z" fill="#ef4444" stroke="#b91c1c" stroke-width="2"/>
+                            </svg>
+
+                            <div class="absolute inset-0 flex justify-between items-start pt-[65px] px-[22.5%] pointer-events-none">
+                                <div class="flex flex-col justify-between h-[450px] w-20 items-center pointer-events-auto">
+                                    <div class="w-20 h-44 flex items-center justify-center">
+                                        <input type="text" id="somoLeft1" value="Red Horn" class="w-36 bg-transparent text-white font-extrabold text-xs text-center focus:outline-none focus:ring-1 focus:ring-white/50 vessel-hull-input drop-shadow-md" />
+                                    </div>
+                                    <div class="w-20 h-44 flex items-center justify-center mt-6">
+                                        <input type="text" id="somoLeft2" value="...." class="w-36 bg-transparent text-white font-extrabold text-xs text-center focus:outline-none focus:ring-1 focus:ring-white/50 vessel-hull-input drop-shadow-md" />
+                                    </div>
+                                </div>
+                                <div class="flex flex-col justify-between h-[450px] w-20 items-center pointer-events-auto">
+                                    <div class="w-20 h-44 flex items-center justify-center">
+                                        <input type="text" id="somoRight1" value="Seapromise" class="w-36 bg-transparent text-white font-extrabold text-xs text-center focus:outline-none focus:ring-1 focus:ring-white/50 vessel-hull-input drop-shadow-md" />
+                                    </div>
+                                    <div class="w-20 h-44 flex items-center justify-center mt-6">
+                                        <input type="text" id="somoRight2" value="...." class="w-36 bg-transparent text-white font-extrabold text-xs text-center focus:outline-none focus:ring-1 focus:ring-white/50 vessel-hull-input drop-shadow-md" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-xs text-slate-400 mt-2 text-center">BOTAŞ / SOMO İskelesi Operasyon Şeması</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: CALCULATOR & RECOMMENDATION -->
+        <div id="tab-calculator" class="hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-1 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl flex flex-col justify-between">
+                    <div class="space-y-6">
+                        <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                            Gemi Kriterleri
+                        </h2>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Gemi Grubu / Kategori</label>
+                                <select id="shipGroup" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" onchange="onGroupChange()">
+                                    <option value="1">Grup 1: Tüm Gemiler (LNG Hariç / 2.000 - 45.000 GT)</option>
+                                    <option value="2">Grup 2: Tehlikeli Yük Taşımayan Diğer Gemiler (> 45.000 GT)</option>
+                                    <option value="3">Grup 3: Tehlikeli Yük / LNG Taşıyan Gemiler</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Gemi Gross Tonajı (GT)</label>
+                                <input type="number" id="grossTonnage" value="25000" min="500" max="300000" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500" oninput="calculateRequirements()">
+                            </div>
+
+                            <div id="specialConditionsContainer" class="bg-slate-950/50 p-4 rounded-xl border border-slate-800 space-y-2 transition-opacity">
+                                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 flex justify-between items-center">
+                                    <span>Özel Durumlar</span>
+                                    <span id="specialStatusBadge" class="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 hidden">Sadece Grup 3'te Aktif</span>
+                                </div>
+                                <label class="flex items-center gap-2 cursor-pointer text-sm text-slate-300">
+                                    <input type="checkbox" id="isLng" class="rounded bg-slate-950 border-slate-800 text-blue-600 focus:ring-blue-500 w-4 h-4" onchange="calculateRequirements()">
+                                    <span id="labelLng">Gemi LNG Taşıyor mu?</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer text-sm text-slate-300">
+                                    <input type="checkbox" id="isDangerousCargo" class="rounded bg-slate-950 border-slate-800 text-blue-600 focus:ring-blue-500 w-4 h-4" onchange="calculateRequirements()">
+                                    <span id="labelDangerous">Tehlikeli Yük (Yön. Md.4 fıkra ğğ)</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-2 space-y-6 flex flex-col justify-between">
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                                <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                Yönetmelik Asgari Şartları
+                            </h2>
+                            <span id="matchedRuleBadge" class="px-3 py-1 bg-blue-500/20 border border-blue-500/30 text-blue-300 text-xs font-medium rounded-full">Eşleşen Kural</span>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-center">
+                                <div class="text-xs text-slate-400 font-medium uppercase">Asgari Römorkör Sayısı</div>
+                                <div id="reqCount" class="text-3xl font-bold text-white mt-2">2</div>
+                                <div id="reqCountNote" class="text-xs text-slate-400 mt-1">adet</div>
+                            </div>
+                            <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-center">
+                                <div class="text-xs text-slate-400 font-medium uppercase">Asgari Toplam Çekme</div>
+                                <div id="reqPull" class="text-3xl font-bold text-blue-400 mt-2">60</div>
+                                <div class="text-xs text-slate-400 mt-1">Ton (Bollard Pull)</div>
+                            </div>
+                            <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-center">
+                                <div class="text-xs text-slate-400 font-medium uppercase">Özel Şart / Açıklama</div>
+                                <div id="reqDesc" class="text-xs font-semibold text-amber-300 mt-3">Her biri en az 30 ton</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                            <div>
+                                <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                                    <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                                    Önerilen Uygun Römorkör Kombinasyonları
+                                </h2>
+                                <p class="text-xs text-slate-400 mt-0.5">Yönetmelik kurallarına uygun liman filosu kombinasyonları.</p>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <span class="text-xs text-slate-400">Sıralama:</span>
+                                <select id="sortCriteria" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200" onchange="calculateRequirements()">
+                                    <option value="minPower">En Yakın Güç (Optimum)</option>
+                                    <option value="maxPower">En Yüksek Güç</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="combinationsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: FLEET DIRECTORY -->
+        <div id="tab-fleet" class="hidden space-y-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-16zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-16z"/></svg>
+                            Tug Fleet (10 pcs)
+                        </h2>
+                        <p class="text-xs text-slate-400">Liman filomuzdaki 10 adet römorkörün güncel motor güçleri ve çeki gücü (Bollard Pull) değerleri.</p>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                <th class="py-3 px-4">No</th>
+                                <th class="py-3 px-4">Gemi Adı</th>
+                                <th class="py-3 px-4">IMO</th>
+                                <th class="py-3 px-4">Ana Mak. (HP)</th>
+                                <th class="py-3 px-4">Yard. Mak. (HP)</th>
+                                <th class="py-3 px-4">İnşa</th>
+                                <th class="py-3 px-4">Çeki Gücü (T)</th>
+                                <th class="py-3 px-4">Geçerlilik Tarihi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fleetTableBody" class="divide-y divide-slate-800/50 text-sm text-slate-200"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal: Gemi Ekle / Düzenle -->
+    <div id="vesselModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 id="modalTitle" class="text-base font-bold text-white">Yeni Gemi Ekle</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-white">&times;</button>
+            </div>
+            <form id="vesselForm" onsubmit="saveVessel(event)" class="space-y-4">
+                <input type="hidden" id="vesselEditIndex" value="-1">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Terminal</label>
+                    <select id="modalTerminal" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200">
+                        <option value="BTC">BTC</option>
+                        <option value="SOMO">SOMO</option>
+                        <option value="GABAR">GABAR</option>
+                        <option value="BOTAŞ YÜKLEME">BOTAŞ YÜKLEME</option>
+                        <option value="BOTAŞ TAHLİYE">BOTAŞ TAHLİYE</option>
+                        <option value="DÖRTYOL YÜKLEME">DÖRTYOL YÜKLEME</option>
+                        <option value="DÖRTYOL TAHLİYE">DÖRTYOL TAHLİYE</option>
+                        <option value="LNG">LNG</option>
+                        <option value="FSRU">FSRU</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Gemi Adı</label>
+                    <input type="text" id="modalName" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200" placeholder="Örn: STI Veneto">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Gross Tonaj (GRT)</label>
+                        <input type="text" id="modalGrt" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200" placeholder="64,827">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Agent</label>
+                        <input type="text" id="modalAgent" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200" placeholder="Shiptech">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Berth</label>
+                        <select id="modalBerth" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200">
+                            <option value="">(Boş)</option>
+                            <option value="⚓">⚓ (Demir)</option>
+                            <option value="4 röm">4 röm</option>
+                            <option value="FSRU">FSRU</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">ETA</label>
+                        <input type="text" id="modalEta" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200" placeholder="25/2100">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">NOR</label>
+                        <input type="text" id="modalNor" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200" placeholder="26/0001">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">YT</label>
+                        <select id="modalYT" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200">
+                            <option value=""></option>
+                            <option value="+">+</option>
+                            <option value="-">-</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">TA</label>
+                        <select id="modalTA" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200">
+                            <option value=""></option>
+                            <option value="+">+</option>
+                            <option value="-">-</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">OR</label>
+                        <select id="modalOR" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200">
+                            <option value=""></option>
+                            <option value="+">+</option>
+                            <option value="-">-</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 pt-4 border-t border-slate-800">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition">İptal</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl transition">Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 border-t border-slate-800 mt-auto py-4 text-center text-xs text-slate-400">
+        <p>Botaş Liman Operasyon ve Römorkör Yönetim Otomasyon Sistemi © 2026</p>
+    </footer>
+
+    <!-- JavaScript Logic -->
+    <script>
+        let scheduleData = [
+            { terminal: "BTC", name: "Nissos Paros", grt: "61,320", agent: "Shiptech", berth: "", eta: "25/2100", nor: "26/0001", yt: "", ta: "", or: "" },
+            { terminal: "BTC", name: "Belmar", grt: "61,332", agent: "Shiptech", berth: "", eta: "28/1200", nor: "28/1200", yt: "", ta: "", or: "" },
+            { terminal: "BTC", name: "Idassa", grt: "63,461", agent: "Medtanker", berth: "", eta: "27/pm", nor: ".", yt: "", ta: "", or: "" },
+            { terminal: "BTC", name: "Seavigour", grt: "81,368", agent: "Medbulk", berth: "", eta: "29/1200", nor: "30/0001", yt: "", ta: "", or: "" },
+            { terminal: "BTC", name: "Seatribute", grt: "60,435", agent: "Shiptech", berth: "", eta: "02/1800", nor: ".", yt: "", ta: "", or: "" },
+            { terminal: "SOMO", name: "Clean Reaper", grt: "30,060", agent: "Medtanker", berth: "⚓4 röm", eta: "24/2100", nor: ".", yt: "", ta: "+", or: "" },
+            { terminal: "SOMO", name: "Valfoglia", grt: "60,185", agent: "Butros", berth: "⚓", eta: "25/0001", nor: ".", yt: "", ta: "+", or: "+" },
+            { terminal: "SOMO", name: "Agios Charalambos", grt: "30,119", agent: "Medtanker", berth: "4 röm", eta: "25/0800", nor: ".", yt: "", ta: "+", or: "" },
+            { terminal: "SOMO", name: "Port Capri", grt: "", agent: "Amon", berth: "", eta: "25/2100", nor: "", yt: "", ta: "+", or: "" },
+            { terminal: "GABAR", name: "T. Suna", grt: "29,754", agent: "Sarıyer", berth: "", eta: "26/1830", nor: ".", yt: "", ta: "+", or: "" },
+            { terminal: "SOMO", name: "Balla", grt: "62,350", agent: "Medtanker", berth: "", eta: "29/0001", nor: ".", yt: "", ta: "", or: "" },
+            { terminal: "SOMO", name: "Kriti Verona", grt: "59611", agent: "Medtanker", berth: "", eta: "29/2300", nor: ".", yt: "", ta: "", or: "" },
+            { terminal: "FSRU", name: "Ertuğrul Gazi", grt: "108,919", agent: "Zihni", berth: "FSRU", eta: "", nor: "", yt: "", ta: "", or: "" },
+            { terminal: "LNG", name: "BERGE ARZEW", grt: "", agent: "", berth: "", eta: "01/0800", nor: "", yt: "", ta: "", or: "" }
+        ];
+
+        const fleetData = [
+            { id: 1, name: "SİLİVRİ", imo: "9980588", mainPower: "2 x 4.023", auxPower: "2 x 320", year: 2024, bp: 80, expiry: "20.11.2029" },
+            { id: 2, name: "SULTANHANI", imo: "9980576", mainPower: "2 x 4.023", auxPower: "2 x 320", year: 2024, bp: 80, expiry: "13.11.2029" },
+            { id: 3, name: "K.S. GÜLER", imo: "9633367", mainPower: "2 x 2.735", auxPower: "2 x 301, 1 x 155", year: 2012, bp: 59, expiry: "03.03.2031" },
+            { id: 4, name: "BOTAŞ", imo: "9633379", mainPower: "2 x 2.735", auxPower: "2 x 320, 1 x 155", year: 2012, bp: 59, expiry: "03.03.2031" },
+            { id: 5, name: "K. B. ÖZBİLEN", imo: "9040297", mainPower: "2 x 1.700", auxPower: "2 x 190", year: 1992, bp: 31, expiry: "24.02.2028" },
+            { id: 6, name: "MALKOÇLAR", imo: "9040302", mainPower: "2 x 1.700", auxPower: "2 x 190", year: 1992, bp: 32, expiry: "24.02.2028" },
+            { id: 7, name: "YAPRACIK", imo: "9040285", mainPower: "2 x 1.700", auxPower: "2 x 190", year: 1992, bp: 34, expiry: "19.06.2028" },
+            { id: 8, name: "B.BAKÜ", imo: "9360104", mainPower: "2 x 2.722", auxPower: "2 x 220, 1 x 62", year: 2005, bp: 52, expiry: "24.02.2028" },
+            { id: 9, name: "B.TİFLİS", imo: "9360099", mainPower: "2 x 2.722", auxPower: "2 x 220, 1 x 62", year: 2005, bp: 52, expiry: "24.02.2028" },
+            { id: 10, name: "B.CEYHAN", imo: "9360087", mainPower: "2 x 2.722", auxPower: "2 x 220, 1 x 62", year: 2005, bp: 51, expiry: "24.02.2028" }
+        ];
+
+        function switchTab(tabName) {
+            const tabs = ['schedule', 'map', 'calculator', 'fleet'];
+            tabs.forEach(t => {
+                document.getElementById('tab-' + t).classList.add('hidden');
+                document.getElementById('btn-' + t).className = "px-3.5 py-2 text-xs md:text-sm font-medium rounded-lg bg-slate-800 text-slate-300 transition hover:bg-slate-700";
+            });
+            document.getElementById('tab-' + tabName).classList.remove('hidden');
+            document.getElementById('btn-' + tabName).className = "px-3.5 py-2 text-xs md:text-sm font-medium rounded-lg bg-blue-600 text-white transition shadow-md hover:bg-blue-500";
+
+            if (tabName === 'schedule') renderScheduleTable();
+            if (tabName === 'fleet') renderFleetTable();
+        }
+
+        function renderScheduleTable() {
+            const tbody = document.getElementById('scheduleTableBody');
+            tbody.innerHTML = '';
+            
+            scheduleData.forEach((item, index) => {
+                const row = document.createElement('tr');
+                row.className = "hover:bg-slate-800/40 transition";
+                
+                row.innerHTML = `
+                    <td class="py-3 px-3 font-semibold text-blue-400 border-r border-slate-800">${item.terminal}</td>
+                    <td class="py-3 px-3 font-bold text-white border-r border-slate-800">${item.name}</td>
+                    <td class="py-3 px-3 text-slate-300 border-r border-slate-800 font-mono">${item.grt}</td>
+                    <td class="py-3 px-3 text-slate-300 border-r border-slate-800">${item.agent}</td>
+                    <td class="py-3 px-3 text-center text-slate-300 border-r border-slate-800">${item.berth}</td>
+                    <td class="py-3 px-3 text-center text-emerald-400 font-semibold border-r border-slate-800">${item.eta}</td>
+                    <td class="py-3 px-3 text-center text-yellow-400 font-semibold border-r border-slate-800">${item.nor}</td>
+                    <td class="py-3 px-3 text-center text-yellow-400 border-r border-slate-800 font-bold">${item.yt}</td>
+                    <td class="py-3 px-3 text-center text-yellow-400 border-r border-slate-800 font-bold">${item.ta}</td>
+                    <td class="py-3 px-3 text-center text-yellow-400 border-r border-slate-800 font-bold">${item.or}</td>
+                    <td class="py-3 px-3 text-center">
+                        <div class="flex items-center justify-center gap-1">
+                            <button onclick="editVessel(${index})" class="p-1 text-slate-400 hover:text-white" title="Düzenle">✏️</button>
+                            <button onclick="deleteVessel(${index})" class="p-1 text-red-400 hover:text-red-300" title="Sil">🗑️</button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function openAddVesselModal() {
+            document.getElementById('modalTitle').innerText = "Yeni Gemi Ekle";
+            document.getElementById('vesselEditIndex').value = -1;
+            document.getElementById('modalTerminal').value = "BTC";
+            document.getElementById('modalName').value = "";
+            document.getElementById('modalGrt').value = "";
+            document.getElementById('modalAgent').value = "";
+            document.getElementById('modalBerth').value = "";
+            document.getElementById('modalEta').value = "";
+            document.getElementById('modalNor').value = "";
+            document.getElementById('modalYT').value = "";
+            document.getElementById('modalTA').value = "";
+            document.getElementById('modalOR').value = "";
+            document.getElementById('vesselModal').classList.remove('hidden');
+        }
+
+        function editVessel(index) {
+            const item = scheduleData[index];
+            document.getElementById('modalTitle').innerText = "Gemi Bilgilerini Düzenle";
+            document.getElementById('vesselEditIndex').value = index;
+            document.getElementById('modalTerminal').value = item.terminal;
+            document.getElementById('modalName').value = item.name;
+            document.getElementById('modalGrt').value = item.grt;
+            document.getElementById('modalAgent').value = item.agent;
+            document.getElementById('modalBerth').value = item.berth || "";
+            document.getElementById('modalEta').value = item.eta;
+            document.getElementById('modalNor').value = item.nor;
+            document.getElementById('modalYT').value = item.yt || '';
+            document.getElementById('modalTA').value = item.ta || '';
+            document.getElementById('modalOR').value = item.or || '';
+            document.getElementById('vesselModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('vesselModal').classList.add('hidden');
+        }
+
+        function saveVessel(event) {
+            event.preventDefault();
+            const index = parseInt(document.getElementById('vesselEditIndex').value);
+            const newItem = {
+                terminal: document.getElementById('modalTerminal').value,
+                name: document.getElementById('modalName').value,
+                grt: document.getElementById('modalGrt').value,
+                agent: document.getElementById('modalAgent').value,
+                berth: document.getElementById('modalBerth').value,
+                eta: document.getElementById('modalEta').value,
+                nor: document.getElementById('modalNor').value,
+                yt: document.getElementById('modalYT').value,
+                ta: document.getElementById('modalTA').value,
+                or: document.getElementById('modalOR').value
+            };
+
+            if (index === -1) {
+                scheduleData.push(newItem);
+            } else {
+                scheduleData[index] = newItem;
+            }
+
+            closeModal();
+            renderScheduleTable();
+        }
+
+        function deleteVessel(index) {
+            if (confirm("Bu gemi kaydını silmek istediğinize emin misiniz?")) {
+                scheduleData.splice(index, 1);
+                renderScheduleTable();
+            }
+        }
+
+        function renderFleetTable() {
+            const tbody = document.getElementById('fleetTableBody');
+            tbody.innerHTML = '';
+            fleetData.forEach(tug => {
+                const row = document.createElement('tr');
+                row.className = "hover:bg-slate-800/30 transition";
+                row.innerHTML = `
+                    <td class="py-3 px-4 font-semibold text-slate-400">#${tug.id}</td>
+                    <td class="py-3 px-4 font-bold text-white">${tug.name}</td>
+                    <td class="py-3 px-4 font-mono text-xs text-slate-300">${tug.imo}</td>
+                    <td class="py-3 px-4 text-slate-300">${tug.mainPower}</td>
+                    <td class="py-3 px-4 text-slate-300">${tug.auxPower}</td>
+                    <td class="py-3 px-4 text-slate-300">${tug.year}</td>
+                    <td class="py-3 px-4 font-bold text-emerald-400">${tug.bp} ton</td>
+                    <td class="py-3 px-4 text-slate-400 text-xs">${tug.expiry}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function onGroupChange() {
+            const group = document.getElementById('shipGroup').value;
+            const isLngCheckbox = document.getElementById('isLng');
+            const isDangerousCheckbox = document.getElementById('isDangerousCargo');
+            const container = document.getElementById('specialConditionsContainer');
+            const badge = document.getElementById('specialStatusBadge');
+            const lblLng = document.getElementById('labelLng');
+            const lblDang = document.getElementById('labelDangerous');
+
+            if (group === "3") {
+                isLngCheckbox.disabled = false;
+                isDangerousCheckbox.disabled = false;
+                container.classList.remove('opacity-50');
+                badge.classList.add('hidden');
+                lblLng.classList.remove('text-slate-500');
+                lblDang.classList.remove('text-slate-500');
+            } else {
+                isLngCheckbox.checked = false;
+                isDangerousCheckbox.checked = false;
+                isLngCheckbox.disabled = true;
+                isDangerousCheckbox.disabled = true;
+                container.classList.add('opacity-50');
+                badge.classList.remove('hidden');
+                lblLng.classList.add('text-slate-500');
+                lblDang.classList.add('text-slate-500');
+            }
+
+            calculateRequirements();
+        }
+
+        function getRegulations(group, gt, isLng, isDangerous) {
+            let req = { count: 1, pull: 16, note: "En az 16 ton", ruleName: "Grup 1 (Genel Standart)" };
+            group = parseInt(group);
+
+            if (group === 1) {
+                if (gt >= 2000 && gt <= 5000) {
+                    req = { count: 1, pull: 16, note: "En az 16 ton", ruleName: "Grup 1 (2.000 - 5.000 GT)" };
+                } else if (gt > 5000 && gt <= 15000) {
+                    req = { count: 2, pull: 32, note: "Her biri en az 16 ton", ruleName: "Grup 1 (5.001 - 15.000 GT)" };
+                } else if (gt > 15000 && gt <= 30000) {
+                    req = { count: 2, pull: 60, note: "Her biri en az 30 ton", ruleName: "Grup 1 (15.001 - 30.000 GT)" };
+                } else if (gt > 30000 && gt <= 45000) {
+                    req = { count: 2, pull: 75, note: "Her biri en az 30 ton", ruleName: "Grup 1 (30.001 - 45.000 GT)" };
+                }
+            } else if (group === 2) {
+                if (gt >= 45001 && gt <= 75000) {
+                    req = { count: 2, pull: 90, note: "Her biri en az 30 ton", ruleName: "Grup 2 (45.001 - 75.000 GT)" };
+                } else if (gt > 75000 && gt <= 150000) {
+                    req = { count: 3, pull: 120, note: "Her biri en az 30 ton", ruleName: "Grup 2 (75.001 - 150.000 GT)" };
+                } else if (gt > 150000) {
+                    req = { count: 3, pull: 150, note: "Her biri en az 30 ton", ruleName: "Grup 2 (150.000 üstü GT)" };
+                } else {
+                    req = { count: 2, pull: 75, note: "Her biri en az 30 ton", ruleName: "Grup 2 (Standart)" };
+                }
+            } else if (group === 3) {
+                if (isLng) {
+                    if (gt >= 2000 && gt <= 5000) {
+                        req = { count: 1, pull: 24, note: "En az 24 ton", ruleName: "Grup 3 - LNG (2.000 - 5.000 GT)" };
+                    } else if (gt > 5000 && gt <= 15000) {
+                        req = { count: 2, pull: 60, note: "Her biri en az 30 ton", ruleName: "Grup 3 - LNG (5.001 - 15.000 GT)" };
+                    } else if (gt > 15000 && gt <= 30000) {
+                        req = { count: 2, pull: 90, note: "Her biri en az 30 ton", ruleName: "Grup 3 - LNG (15.001 - 30.000 GT)" };
+                    } else if (gt > 30000 && gt <= 45000) {
+                        req = { count: 2, pull: 120, note: "Her biri en az 30 ton", ruleName: "Grup 3 - LNG (30.001 - 45.000 GT)" };
+                    } else if (gt > 45000 && gt <= 90000) {
+                        req = { count: 3, pull: 150, note: "Her biri en az 30 ton", ruleName: "Grup 3 - LNG (45.001 - 90.000 GT)" };
+                    } else if (gt > 90000) {
+                        req = { count: 3, pull: 180, note: "Her biri en az 30 ton", ruleName: "Grup 3 - LNG (90.000 üstü GT)" };
+                    }
+                } else {
+                    if (gt >= 45001 && gt <= 75000) {
+                        req = { count: 3, pull: 120, note: "Her biri en az 30 ton", ruleName: "Grup 3 - Tehlikeli Yük (45.001 - 75.000 GT)" };
+                    } else if (gt > 75000 && gt <= 150000) {
+                        req = { count: 3, pull: 150, note: "Her biri en az 30 ton", ruleName: "Grup 3 - Tehlikeli Yük (75.001 - 150.000 GT)" };
+                    } else if (gt > 150000) {
+                        req = { count: 3, pull: 180, note: "Her biri en az 30 ton", ruleName: "Grup 3 - Tehlikeli Yük (150.000 üstü GT)" };
+                    } else {
+                        req = { count: 2, pull: 75, note: "Her biri en az 30 ton", ruleName: "Grup 3 - Tehlikeli Yük (Standart)" };
+                    }
+                }
+            }
+            return req;
+        }
+
+        function calculateRequirements() {
+            const group = document.getElementById('shipGroup').value;
+            const gt = parseFloat(document.getElementById('grossTonnage').value) || 0;
+            const isLng = document.getElementById('isLng').checked;
+            const isDangerous = document.getElementById('isDangerousCargo').checked;
+
+            const rule = getRegulations(group, gt, isLng, isDangerous);
+
+            document.getElementById('reqCount').innerText = rule.count;
+            document.getElementById('reqPull').innerText = rule.pull;
+            document.getElementById('reqDesc').innerText = rule.note;
+            document.getElementById('matchedRuleBadge').innerText = rule.ruleName;
+
+            generateCombinations(rule.count, rule.pull, rule.note);
+        }
+
+        function parseMinIndividualPower(note) {
+            if (note.includes("30 ton")) return 30;
+            if (note.includes("24 ton")) return 24;
+            if (note.includes("16 ton")) return 16;
+            return 0;
+        }
+
+        function generateCombinations(targetCount, targetPull, note) {
+            const minIndiv = parseMinIndividualPower(note);
+            const container = document.getElementById('combinationsContainer');
+            const sortCriteria = document.getElementById('sortCriteria').value;
+            container.innerHTML = '';
+
+            const validTugs = fleetData.filter(t => t.bp >= minIndiv);
+            let validCombinations = [];
+
+            function findCombos(arr, k, prefix = []) {
+                if (prefix.length === k) {
+                    const totalPull = prefix.reduce((sum, t) => sum + t.bp, 0);
+                    if (totalPull >= targetPull) {
+                        validCombinations.push([...prefix]);
+                    }
+                    return;
+                }
+                for (let i = 0; i < arr.length; i++) {
+                    findCombos(arr.slice(i + 1), k, [...prefix, arr[i]]);
+                }
+            }
+
+            for (let k = targetCount; k <= Math.min(validTugs.length, targetCount + 1); k++) {
+                findCombos(validTugs, k);
+            }
+
+            if (validCombinations.length === 0 && targetCount < fleetData.length) {
+                for (let k = targetCount + 1; k <= Math.min(validTugs.length, targetCount + 2); k++) {
+                    findCombos(validTugs, k);
+                }
+            }
+
+            if (sortCriteria === 'minPower') {
+                validCombinations.sort((a, b) => {
+                    const sumA = a.reduce((s, t) => s + t.bp, 0);
+                    const sumB = b.reduce((s, t) => s + t.bp, 0);
+                    return sumA - sumB;
+                });
+            } else {
+                validCombinations.sort((a, b) => {
+                    const sumA = a.reduce((s, t) => s + t.bp, 0);
+                    const sumB = b.reduce((s, t) => s + t.bp, 0);
+                    return sumB - sumA;
+                });
+            }
+
+            const topCombos = validCombinations.slice(0, 6);
+
+            if (topCombos.length > 0) {
+                topCombos.forEach((combo, index) => {
+                    const totalPull = combo.reduce((s, t) => s + t.bp, 0);
+                    const card = document.createElement('div');
+                    card.className = "bg-slate-900 border border-slate-700/80 rounded-xl p-4 flex flex-col justify-between hover:border-blue-500/50 transition shadow-inner";
+                    
+                    let tugBadges = combo.map(t => `
+                        <div class="flex items-center justify-between bg-slate-800 px-3 py-2 rounded-lg border border-slate-700 text-xs">
+                            <span class="font-bold text-white">${t.name}</span>
+                            <span class="text-emerald-400 font-semibold">${t.bp} ton</span>
+                        </div>
+                    `).join('');
+
+                    card.innerHTML = `
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-xs font-bold text-blue-400 uppercase">Alternatif #${index + 1}</span>
+                                <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 text-xs font-bold rounded">Toplam: ${totalPull} Ton</span>
+                            </div>
+                            <div class="space-y-2">
+                                ${tugBadges}
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } else {
+                container.innerHTML = `
+                    <div class="col-span-full py-8 text-center text-slate-500 text-sm">
+                        Liman filosundaki mevcut römorkör güçleri bu tonaj grubu için yönetmelik sınırlarını karşılamıyor.
+                    </div>
+                `;
+            }
+        }
+
+        window.onload = function() {
+            renderScheduleTable();
+            onGroupChange();
+            calculateRequirements();
+        };
+    </script>
+</body>
+</html>
